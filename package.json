@@ -23,10 +23,10 @@
     "cli"
   ],
   "license": "MIT",
-  "homepage": "https://github.com/VincentHardouin/opencode-snip",
+  "homepage": "https://github.com/tobiashochguertel/opencode-snip",
   "repository": {
     "type": "git",
-    "url": "https://github.com/VincentHardouin/opencode-snip"
+    "url": "https://github.com/tobiashochguertel/opencode-snip"
   },
   "engines": {
     "node": "^24"
