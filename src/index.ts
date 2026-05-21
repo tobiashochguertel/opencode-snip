@@ -34,7 +34,7 @@ function snipCommand(command: string): string {
   const bareCmd = command.slice(envPrefix.length).trim()
   if (!bareCmd) return command
   if (UNPROXYABLE_COMMANDS.has(bareCmd.split(/\s+/)[0])) return command
-  return `${envPrefix}snip ${bareCmd}`
+  return `${envPrefix}snip run -- ${bareCmd}`
 }
 
 export const toolExecuteBefore: NonNullable<Hooks["tool.execute.before"]> = async (input, output) => {
