@@ -196,4 +196,25 @@ describe("toolExecuteBefore", () => {
       expect(mockOutput.args.command).toBe('snip run -- echo "hello | world" | cat')
     })
   })
+
+  describe("shell loops", () => {
+    it("should handle for loop with ; separators", async () => {
+      mockOutput.args.command = "for f in a b c; do echo $f; done"
+      await toolExecuteBefore(mockInput, mockOutput)
+      // Each ;-separated segment gets its own snip run -- prefix
+      expect(mockOutput.args.command).toBe("snip run -- for f in a b c; snip run -- do echo $f; snip run -- done")
+    })
+
+    it("should handle while loop", async () => {
+      mockOutput.args.command = "while true; do echo running; sleep 1; done"
+      await toolExecuteBefore(mockInput, mockOutput)
+      expect(mockOutput.args.command).toBe("snip run -- while true; snip run -- do echo running; snip run -- sleep 1; snip run -- done")
+    })
+
+    it("should handle for loop with pipes inside", async () => {
+      mockOutput.args.command = "for f in *.log; do cat $f | grep error; done"
+      await toolExecuteBefore(mockInput, mockOutput)
+      expect(mockOutput.args.command).toBe("snip run -- for f in *.log; snip run -- do cat $f | grep error; snip run -- done")
+    })
+  })
 })
