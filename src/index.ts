@@ -4,7 +4,7 @@ const ENV_VAR_RE = /^([A-Za-z_][A-Za-z0-9_]*=[^\s]* +)*/
 const UNPROXYABLE_COMMANDS = new Set([
   "cd", "source", ".", "export", "alias", "unset", "set", "shopt", "eval", "exec",
 ])
-const OPERATOR_RE = /(\s*(?:&&|\|\||;)\s*|\s&\s?)/
+const OPERATOR_RE = /(\s*(?:&&|\|\|)\s*)/
 
 function findFirstPipe(command: string): number {
   let inSingleQuote = false
@@ -29,6 +29,22 @@ function findFirstPipe(command: string): number {
   return -1
 }
 
+function containsUnquotedSemicolon(command: string): boolean {
+  let inSingleQuote = false
+  let inDoubleQuote = false
+  for (let i = 0; i < command.length; i++) {
+    const char = command[i]
+    if (char === "'" && !inDoubleQuote) {
+      inSingleQuote = !inSingleQuote
+    } else if (char === '"' && !inSingleQuote) {
+      inDoubleQuote = !inDoubleQuote
+    } else if (char === ';' && !inSingleQuote && !inDoubleQuote) {
+      return true
+    }
+  }
+  return false
+}
+
 function snipCommand(command: string): string {
   const envPrefix = (command.match(ENV_VAR_RE) ?? [""])[0]
   const bareCmd = command.slice(envPrefix.length).trim()
@@ -43,6 +59,7 @@ export const toolExecuteBefore: NonNullable<Hooks["tool.execute.before"]> = asyn
   const command = output.args.command
   if (!command || typeof command !== "string") return
   if (command.startsWith("snip ")) return
+  if (containsUnquotedSemicolon(command)) return
 
   if (findFirstPipe(command) !== -1) {
     const pipeIdx = findFirstPipe(command)

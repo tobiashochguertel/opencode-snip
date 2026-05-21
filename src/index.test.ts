@@ -41,9 +41,10 @@ describe("toolExecuteBefore", () => {
   })
 
   it("should handle command with ;", async () => {
+    // Commands with unquoted ; are passed through to avoid breaking compound constructs
     mockOutput.args.command = "go test; go build"
     await toolExecuteBefore(mockInput, mockOutput)
-    expect(mockOutput.args.command).toBe("snip run -- go test; snip run -- go build")
+    expect(mockOutput.args.command).toBe("go test; go build")
   })
 
   it("should handle command with ||", async () => {
@@ -53,15 +54,18 @@ describe("toolExecuteBefore", () => {
   })
 
   it("should handle command with &", async () => {
+    // & is no longer split; the entire string becomes a single snip command
+    // The shell handles the & for backgrounding at runtime
     mockOutput.args.command = "sleep 1 & sleep 2 &"
     await toolExecuteBefore(mockInput, mockOutput)
-    expect(mockOutput.args.command).toBe("snip run -- sleep 1 & snip run -- sleep 2 &")
+    expect(mockOutput.args.command).toBe("snip run -- sleep 1 & sleep 2 &")
   })
 
   it("should handle mixed operators", async () => {
+    // Contains unquoted ; so the entire command passes through
     mockOutput.args.command = "go test && go build; go run"
     await toolExecuteBefore(mockInput, mockOutput)
-    expect(mockOutput.args.command).toBe("snip run -- go test && snip run -- go build; snip run -- go run")
+    expect(mockOutput.args.command).toBe("go test && go build; go run")
   })
 
   it("should handle env vars with operators", async () => {
@@ -197,24 +201,24 @@ describe("toolExecuteBefore", () => {
     })
   })
 
-  describe("shell loops", () => {
-    it("should handle for loop with ; separators", async () => {
+  describe("shell loops with ;", () => {
+    it("should pass through for loop unchanged", async () => {
       mockOutput.args.command = "for f in a b c; do echo $f; done"
       await toolExecuteBefore(mockInput, mockOutput)
-      // Each ;-separated segment gets its own snip run -- prefix
-      expect(mockOutput.args.command).toBe("snip run -- for f in a b c; snip run -- do echo $f; snip run -- done")
+      // Contains unquoted ; — passes through to preserve the loop construct
+      expect(mockOutput.args.command).toBe("for f in a b c; do echo $f; done")
     })
 
-    it("should handle while loop", async () => {
+    it("should pass through while loop unchanged", async () => {
       mockOutput.args.command = "while true; do echo running; sleep 1; done"
       await toolExecuteBefore(mockInput, mockOutput)
-      expect(mockOutput.args.command).toBe("snip run -- while true; snip run -- do echo running; snip run -- sleep 1; snip run -- done")
+      expect(mockOutput.args.command).toBe("while true; do echo running; sleep 1; done")
     })
 
-    it("should handle for loop with pipes inside", async () => {
+    it("should pass through for loop with pipes inside unchanged", async () => {
       mockOutput.args.command = "for f in *.log; do cat $f | grep error; done"
       await toolExecuteBefore(mockInput, mockOutput)
-      expect(mockOutput.args.command).toBe("snip run -- for f in *.log; snip run -- do cat $f | grep error; snip run -- done")
+      expect(mockOutput.args.command).toBe("for f in *.log; do cat $f | grep error; done")
     })
   })
 })
