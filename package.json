@@ -1,5 +1,6 @@
 {
   "name": "opencode-snip",
+  "version": "1.7.0",
   "description": "OpenCode plugin that prefixes shell commands with snip to reduce LLM token consumption",
   "type": "module",
   "main": ".opencode/plugins/index.ts",
