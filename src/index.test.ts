@@ -2,223 +2,221 @@ import { describe, it, expect, beforeEach } from "vitest"
 import { toolExecuteBefore } from "./index"
 
 describe("toolExecuteBefore", () => {
-  let mockInput: { tool: string; sessionID: string; callID: string }
-  let mockOutput: { args: { command: string } }
+  let mockEvent: { tool: string; sessionID: string; id: string; input: { command: string } }
 
   beforeEach(() => {
-    mockInput = { tool: "bash", sessionID: "s", callID: "c" }
-    mockOutput = { args: { command: "" } }
+    mockEvent = { tool: "bash", sessionID: "s", id: "c", input: { command: "" } }
   })
 
   it("should prefix simple command with snip", async () => {
-    mockOutput.args.command = "go test ./..."
-    await toolExecuteBefore(mockInput, mockOutput)
-    expect(mockOutput.args.command).toBe("snip run -- go test ./...")
+    mockEvent.input.command = "go test ./..."
+    await toolExecuteBefore(mockEvent)
+    expect(mockEvent.input.command).toBe("snip run -- go test ./...")
   })
 
   it("should handle command with one env var prefix", async () => {
-    mockOutput.args.command = "CGO_ENABLED=0 go test ./..."
-    await toolExecuteBefore(mockInput, mockOutput)
-    expect(mockOutput.args.command).toBe("CGO_ENABLED=0 snip run -- go test ./...")
+    mockEvent.input.command = "CGO_ENABLED=0 go test ./..."
+    await toolExecuteBefore(mockEvent)
+    expect(mockEvent.input.command).toBe("CGO_ENABLED=0 snip run -- go test ./...")
   })
 
   it("should handle command with multiple env var prefixes", async () => {
-    mockOutput.args.command = "CGO_ENABLED=0 GOOS=linux go test ./..."
-    await toolExecuteBefore(mockInput, mockOutput)
-    expect(mockOutput.args.command).toBe("CGO_ENABLED=0 GOOS=linux snip run -- go test ./...")
+    mockEvent.input.command = "CGO_ENABLED=0 GOOS=linux go test ./..."
+    await toolExecuteBefore(mockEvent)
+    expect(mockEvent.input.command).toBe("CGO_ENABLED=0 GOOS=linux snip run -- go test ./...")
   })
 
   it("should handle command with &&", async () => {
-    mockOutput.args.command = "go test && go build"
-    await toolExecuteBefore(mockInput, mockOutput)
-    expect(mockOutput.args.command).toBe("snip run -- go test && snip run -- go build")
+    mockEvent.input.command = "go test && go build"
+    await toolExecuteBefore(mockEvent)
+    expect(mockEvent.input.command).toBe("snip run -- go test && snip run -- go build")
   })
 
   it("should handle command with |", async () => {
-    mockOutput.args.command = "git log | head"
-    await toolExecuteBefore(mockInput, mockOutput)
-    expect(mockOutput.args.command).toBe("snip run -- git log | head")
+    mockEvent.input.command = "git log | head"
+    await toolExecuteBefore(mockEvent)
+    expect(mockEvent.input.command).toBe("snip run -- git log | head")
   })
 
   it("should handle command with ;", async () => {
     // Commands with unquoted ; are passed through to avoid breaking compound constructs
-    mockOutput.args.command = "go test; go build"
-    await toolExecuteBefore(mockInput, mockOutput)
-    expect(mockOutput.args.command).toBe("go test; go build")
+    mockEvent.input.command = "go test; go build"
+    await toolExecuteBefore(mockEvent)
+    expect(mockEvent.input.command).toBe("go test; go build")
   })
 
   it("should handle command with ||", async () => {
-    mockOutput.args.command = "test -f foo.txt || echo missing"
-    await toolExecuteBefore(mockInput, mockOutput)
-    expect(mockOutput.args.command).toBe("snip run -- test -f foo.txt || snip run -- echo missing")
+    mockEvent.input.command = "test -f foo.txt || echo missing"
+    await toolExecuteBefore(mockEvent)
+    expect(mockEvent.input.command).toBe("snip run -- test -f foo.txt || snip run -- echo missing")
   })
 
   it("should handle command with &", async () => {
     // & is no longer split; the entire string becomes a single snip command
     // The shell handles the & for backgrounding at runtime
-    mockOutput.args.command = "sleep 1 & sleep 2 &"
-    await toolExecuteBefore(mockInput, mockOutput)
-    expect(mockOutput.args.command).toBe("snip run -- sleep 1 & sleep 2 &")
+    mockEvent.input.command = "sleep 1 & sleep 2 &"
+    await toolExecuteBefore(mockEvent)
+    expect(mockEvent.input.command).toBe("snip run -- sleep 1 & sleep 2 &")
   })
 
   it("should handle mixed operators", async () => {
     // Contains unquoted ; so the entire command passes through
-    mockOutput.args.command = "go test && go build; go run"
-    await toolExecuteBefore(mockInput, mockOutput)
-    expect(mockOutput.args.command).toBe("go test && go build; go run")
+    mockEvent.input.command = "go test && go build; go run"
+    await toolExecuteBefore(mockEvent)
+    expect(mockEvent.input.command).toBe("go test && go build; go run")
   })
 
   it("should handle env vars with operators", async () => {
-    mockOutput.args.command = "FOO=bar go test && go build"
-    await toolExecuteBefore(mockInput, mockOutput)
-    expect(mockOutput.args.command).toBe("FOO=bar snip run -- go test && snip run -- go build")
+    mockEvent.input.command = "FOO=bar go test && go build"
+    await toolExecuteBefore(mockEvent)
+    expect(mockEvent.input.command).toBe("FOO=bar snip run -- go test && snip run -- go build")
   })
 
   it("should not double prefix already prefixed command", async () => {
-    mockOutput.args.command = "snip go test"
-    await toolExecuteBefore(mockInput, mockOutput)
-    expect(mockOutput.args.command).toBe("snip go test")
+    mockEvent.input.command = "snip go test"
+    await toolExecuteBefore(mockEvent)
+    expect(mockEvent.input.command).toBe("snip go test")
   })
 
   it("should not modify non-bash tool calls", async () => {
-    mockInput.tool = "read"
-    mockOutput.args.command = "go test"
-    await toolExecuteBefore(mockInput, mockOutput)
-    expect(mockOutput.args.command).toBe("go test")
+    mockEvent.tool = "read"
+    mockEvent.input.command = "go test"
+    await toolExecuteBefore(mockEvent)
+    expect(mockEvent.input.command).toBe("go test")
   })
 
   describe("unproxyable shell builtins", () => {
     it("should skip cd", async () => {
-      mockOutput.args.command = "cd /tmp"
-      await toolExecuteBefore(mockInput, mockOutput)
-      expect(mockOutput.args.command).toBe("cd /tmp")
+      mockEvent.input.command = "cd /tmp"
+      await toolExecuteBefore(mockEvent)
+      expect(mockEvent.input.command).toBe("cd /tmp")
     })
 
     it("should skip source", async () => {
-      mockOutput.args.command = "source ~/.bashrc"
-      await toolExecuteBefore(mockInput, mockOutput)
-      expect(mockOutput.args.command).toBe("source ~/.bashrc")
+      mockEvent.input.command = "source ~/.bashrc"
+      await toolExecuteBefore(mockEvent)
+      expect(mockEvent.input.command).toBe("source ~/.bashrc")
     })
 
     it("should skip . (dot)", async () => {
-      mockOutput.args.command = ". ./env.sh"
-      await toolExecuteBefore(mockInput, mockOutput)
-      expect(mockOutput.args.command).toBe(". ./env.sh")
+      mockEvent.input.command = ". ./env.sh"
+      await toolExecuteBefore(mockEvent)
+      expect(mockEvent.input.command).toBe(". ./env.sh")
     })
 
     it("should skip export", async () => {
-      mockOutput.args.command = "export FOO=bar"
-      await toolExecuteBefore(mockInput, mockOutput)
-      expect(mockOutput.args.command).toBe("export FOO=bar")
+      mockEvent.input.command = "export FOO=bar"
+      await toolExecuteBefore(mockEvent)
+      expect(mockEvent.input.command).toBe("export FOO=bar")
     })
 
     it("should skip alias", async () => {
-      mockOutput.args.command = 'alias ll="ls -la"'
-      await toolExecuteBefore(mockInput, mockOutput)
-      expect(mockOutput.args.command).toBe('alias ll="ls -la"')
+      mockEvent.input.command = 'alias ll="ls -la"'
+      await toolExecuteBefore(mockEvent)
+      expect(mockEvent.input.command).toBe('alias ll="ls -la"')
     })
 
     it("should skip unset", async () => {
-      mockOutput.args.command = "unset VAR"
-      await toolExecuteBefore(mockInput, mockOutput)
-      expect(mockOutput.args.command).toBe("unset VAR")
+      mockEvent.input.command = "unset VAR"
+      await toolExecuteBefore(mockEvent)
+      expect(mockEvent.input.command).toBe("unset VAR")
     })
 
     it("should skip export with env var prefix", async () => {
-      mockOutput.args.command = "CGO_ENABLED=0 export FOO=bar"
-      await toolExecuteBefore(mockInput, mockOutput)
-      expect(mockOutput.args.command).toBe("CGO_ENABLED=0 export FOO=bar")
+      mockEvent.input.command = "CGO_ENABLED=0 export FOO=bar"
+      await toolExecuteBefore(mockEvent)
+      expect(mockEvent.input.command).toBe("CGO_ENABLED=0 export FOO=bar")
     })
 
     it("should skip cd but snip chained command", async () => {
-      mockOutput.args.command = "cd /tmp && ls"
-      await toolExecuteBefore(mockInput, mockOutput)
-      expect(mockOutput.args.command).toBe("cd /tmp && snip run -- ls")
+      mockEvent.input.command = "cd /tmp && ls"
+      await toolExecuteBefore(mockEvent)
+      expect(mockEvent.input.command).toBe("cd /tmp && snip run -- ls")
     })
   })
 
   describe("redirections with &", () => {
     it("should not break 2>&1 redirection", async () => {
-      mockOutput.args.command = "find / -name \"*.log\" 2>&1"
-      await toolExecuteBefore(mockInput, mockOutput)
-      expect(mockOutput.args.command).toBe("snip run -- find / -name \"*.log\" 2>&1")
+      mockEvent.input.command = "find / -name \"*.log\" 2>&1"
+      await toolExecuteBefore(mockEvent)
+      expect(mockEvent.input.command).toBe("snip run -- find / -name \"*.log\" 2>&1")
     })
 
     it("should not break 1>&2 redirection", async () => {
-      mockOutput.args.command = "cmd 1>&2"
-      await toolExecuteBefore(mockInput, mockOutput)
-      expect(mockOutput.args.command).toBe("snip run -- cmd 1>&2")
+      mockEvent.input.command = "cmd 1>&2"
+      await toolExecuteBefore(mockEvent)
+      expect(mockEvent.input.command).toBe("snip run -- cmd 1>&2")
     })
 
     it("should handle 2>&1 with pipe", async () => {
-      mockOutput.args.command = "find / -name \"*.log\" 2>&1 | grep error"
-      await toolExecuteBefore(mockInput, mockOutput)
-      expect(mockOutput.args.command).toBe("snip run -- find / -name \"*.log\" 2>&1 | grep error")
+      mockEvent.input.command = "find / -name \"*.log\" 2>&1 | grep error"
+      await toolExecuteBefore(mockEvent)
+      expect(mockEvent.input.command).toBe("snip run -- find / -name \"*.log\" 2>&1 | grep error")
     })
 
     it("should handle 2>&1 with chained commands", async () => {
-      mockOutput.args.command = "cmd1 2>&1 && cmd2"
-      await toolExecuteBefore(mockInput, mockOutput)
-      expect(mockOutput.args.command).toBe("snip run -- cmd1 2>&1 && snip run -- cmd2")
+      mockEvent.input.command = "cmd1 2>&1 && cmd2"
+      await toolExecuteBefore(mockEvent)
+      expect(mockEvent.input.command).toBe("snip run -- cmd1 2>&1 && snip run -- cmd2")
     })
   })
 
   describe("pipe expressions with quotes", () => {
     it("should not split pipes inside single quotes", async () => {
-      mockOutput.args.command = "cat file.json | jq '.content | .text'"
-      await toolExecuteBefore(mockInput, mockOutput)
-      expect(mockOutput.args.command).toBe("snip run -- cat file.json | jq '.content | .text'")
+      mockEvent.input.command = "cat file.json | jq '.content | .text'"
+      await toolExecuteBefore(mockEvent)
+      expect(mockEvent.input.command).toBe("snip run -- cat file.json | jq '.content | .text'")
     })
 
     it("should not split pipes inside double quotes", async () => {
-      mockOutput.args.command = 'cat file.json | jq ".content | .text"'
-      await toolExecuteBefore(mockInput, mockOutput)
-      expect(mockOutput.args.command).toBe('snip run -- cat file.json | jq ".content | .text"')
+      mockEvent.input.command = 'cat file.json | jq ".content | .text"'
+      await toolExecuteBefore(mockEvent)
+      expect(mockEvent.input.command).toBe('snip run -- cat file.json | jq ".content | .text"')
     })
 
     it("should handle jq with fromjson", async () => {
-      mockOutput.args.command = "cat file.json | jq '.content[0].text | fromjson'"
-      await toolExecuteBefore(mockInput, mockOutput)
-      expect(mockOutput.args.command).toBe("snip run -- cat file.json | jq '.content[0].text | fromjson'")
+      mockEvent.input.command = "cat file.json | jq '.content[0].text | fromjson'"
+      await toolExecuteBefore(mockEvent)
+      expect(mockEvent.input.command).toBe("snip run -- cat file.json | jq '.content[0].text | fromjson'")
     })
 
     it("should handle multiple pipes in jq", async () => {
-      mockOutput.args.command = "cat file.json | jq '.a | .b | .c'"
-      await toolExecuteBefore(mockInput, mockOutput)
-      expect(mockOutput.args.command).toBe("snip run -- cat file.json | jq '.a | .b | .c'")
+      mockEvent.input.command = "cat file.json | jq '.a | .b | .c'"
+      await toolExecuteBefore(mockEvent)
+      expect(mockEvent.input.command).toBe("snip run -- cat file.json | jq '.a | .b | .c'")
     })
 
     it("should handle pipe with || operator", async () => {
-      mockOutput.args.command = "cmd1 || cmd2"
-      await toolExecuteBefore(mockInput, mockOutput)
-      expect(mockOutput.args.command).toBe("snip run -- cmd1 || snip run -- cmd2")
+      mockEvent.input.command = "cmd1 || cmd2"
+      await toolExecuteBefore(mockEvent)
+      expect(mockEvent.input.command).toBe("snip run -- cmd1 || snip run -- cmd2")
     })
 
     it("should handle mixed quotes and pipes", async () => {
-      mockOutput.args.command = 'echo "hello | world" | cat'
-      await toolExecuteBefore(mockInput, mockOutput)
-      expect(mockOutput.args.command).toBe('snip run -- echo "hello | world" | cat')
+      mockEvent.input.command = 'echo "hello | world" | cat'
+      await toolExecuteBefore(mockEvent)
+      expect(mockEvent.input.command).toBe('snip run -- echo "hello | world" | cat')
     })
   })
 
   describe("shell loops with ;", () => {
     it("should pass through for loop unchanged", async () => {
-      mockOutput.args.command = "for f in a b c; do echo $f; done"
-      await toolExecuteBefore(mockInput, mockOutput)
+      mockEvent.input.command = "for f in a b c; do echo $f; done"
+      await toolExecuteBefore(mockEvent)
       // Contains unquoted ; — passes through to preserve the loop construct
-      expect(mockOutput.args.command).toBe("for f in a b c; do echo $f; done")
+      expect(mockEvent.input.command).toBe("for f in a b c; do echo $f; done")
     })
 
     it("should pass through while loop unchanged", async () => {
-      mockOutput.args.command = "while true; do echo running; sleep 1; done"
-      await toolExecuteBefore(mockInput, mockOutput)
-      expect(mockOutput.args.command).toBe("while true; do echo running; sleep 1; done")
+      mockEvent.input.command = "while true; do echo running; sleep 1; done"
+      await toolExecuteBefore(mockEvent)
+      expect(mockEvent.input.command).toBe("while true; do echo running; sleep 1; done")
     })
 
     it("should pass through for loop with pipes inside unchanged", async () => {
-      mockOutput.args.command = "for f in *.log; do cat $f | grep error; done"
-      await toolExecuteBefore(mockInput, mockOutput)
-      expect(mockOutput.args.command).toBe("for f in *.log; do cat $f | grep error; done")
+      mockEvent.input.command = "for f in *.log; do cat $f | grep error; done"
+      await toolExecuteBefore(mockEvent)
+      expect(mockEvent.input.command).toBe("for f in *.log; do cat $f | grep error; done")
     })
   })
 })

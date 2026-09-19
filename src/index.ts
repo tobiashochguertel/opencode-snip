@@ -1,4 +1,5 @@
-import type { Hooks, Plugin } from "@opencode-ai/plugin"
+import { Plugin } from "@opencode/plugin"
+import { spawnSync } from "node:child_process"
 
 const ENV_VAR_RE = /^([A-Za-z_][A-Za-z0-9_]*=[^\s]* +)*/
 const UNPROXYABLE_COMMANDS = new Set([
@@ -53,10 +54,16 @@ function snipCommand(command: string): string {
   return `${envPrefix}snip run -- ${bareCmd}`
 }
 
-export const toolExecuteBefore: NonNullable<Hooks["tool.execute.before"]> = async (input, output) => {
-  if (input.tool !== "bash") return
+export interface ExecuteBeforeEvent {
+  tool: string
+  input: { command?: unknown }
+}
 
-  const command = output.args.command
+export const toolExecuteBefore = (event: ExecuteBeforeEvent): void => {
+  if (event.tool !== "bash") return
+
+  const args = event.input
+  const command = args.command
   if (!command || typeof command !== "string") return
   if (command.startsWith("snip ")) return
   if (containsUnquotedSemicolon(command)) return
@@ -65,33 +72,33 @@ export const toolExecuteBefore: NonNullable<Hooks["tool.execute.before"]> = asyn
     const pipeIdx = findFirstPipe(command)
     const firstCmd = command.slice(0, pipeIdx).trimEnd()
     const rest = command.slice(pipeIdx)
-    output.args.command = snipCommand(firstCmd) + ' ' + rest
+    args.command = snipCommand(firstCmd) + ' ' + rest
     return
   }
 
   const segments = command.split(OPERATOR_RE)
 
   if (segments.length === 1) {
-    output.args.command = snipCommand(command)
+    args.command = snipCommand(command)
     return
   }
 
-  output.args.command = segments
+  args.command = segments
     .map((segment) => OPERATOR_RE.test(segment) ? segment : snipCommand(segment))
     .join("")
 }
 
-export const SnipPlugin: Plugin = async ({ $ }) => {
-  try {
-    await $`which snip`.quiet()
-  } catch {
-    console.warn("[snip] snip binary not found in PATH — plugin disabled")
-    return {}
-  }
+export default Plugin.define({
+  id: "snip",
+  setup(ctx) {
+    const check = spawnSync("which", ["snip"], { stdio: "ignore" })
+    if (check.error || check.status !== 0) {
+      console.warn("[snip] snip binary not found in PATH — plugin disabled")
+      return
+    }
 
-  return {
-    "tool.execute.before": toolExecuteBefore,
-  }
-}
-
-export default SnipPlugin
+    void ctx.tool.hook("execute.before", (event) => {
+      toolExecuteBefore(event as ExecuteBeforeEvent)
+    })
+  },
+})
