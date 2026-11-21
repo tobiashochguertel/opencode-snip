@@ -29,13 +29,15 @@ Add the plugin to your OpenCode config (`~/.config/opencode/opencode.json`):
 ```json
 {
   "$schema": "https://opencode.ai/config.json",
-  "plugin": ["opencode-snip@latest"]
+  "plugins": ["opencode-snip@latest"]
 }
 ```
 
+The plugin targets OpenCode v2. On OpenCode v1, use `opencode-snip@2`.
+
 ## How It Works
 
-The plugin uses the `tool.execute.before` hook to prefix all commands with `snip`
+The plugin uses the tool `execute.before` hook to prefix shell commands with `snip run --`
 
 ## Development
 

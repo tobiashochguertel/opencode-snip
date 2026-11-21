@@ -85,6 +85,13 @@ describe("toolExecuteBefore", () => {
     expect(mockEvent.input.command).toBe("go test")
   })
 
+  it("should handle the OpenCode v2 shell tool", async () => {
+    mockEvent.tool = "shell"
+    mockEvent.input.command = "go test"
+    await toolExecuteBefore(mockEvent)
+    expect(mockEvent.input.command).toBe("snip run -- go test")
+  })
+
   describe("unproxyable shell builtins", () => {
     it("should skip cd", async () => {
       mockEvent.input.command = "cd /tmp"
@@ -196,6 +203,33 @@ describe("toolExecuteBefore", () => {
       mockEvent.input.command = 'echo "hello | world" | cat'
       await toolExecuteBefore(mockEvent)
       expect(mockEvent.input.command).toBe('snip run -- echo "hello | world" | cat')
+    })
+  })
+
+  describe("quoting and multiline safety", () => {
+    it("should not split on quoted && or ||", async () => {
+      mockEvent.input.command = "printf '%s\\n' 'a && b' || echo \"x || y\""
+      await toolExecuteBefore(mockEvent)
+      expect(mockEvent.input.command).toBe("snip run -- printf '%s\\n' 'a && b' || snip run -- echo \"x || y\"")
+    })
+
+    it("should keep quoted env var values intact", async () => {
+      mockEvent.input.command = 'FOO="hello world" BAR=\'a b\' printenv FOO'
+      await toolExecuteBefore(mockEvent)
+      expect(mockEvent.input.command).toBe('FOO="hello world" BAR=\'a b\' snip run -- printenv FOO')
+    })
+
+    it("should keep backslash-escaped env var values intact", async () => {
+      mockEvent.input.command = "FOO=it\\'s printenv FOO"
+      await toolExecuteBefore(mockEvent)
+      expect(mockEvent.input.command).toBe("FOO=it\\'s snip run -- printenv FOO")
+    })
+
+    it("should pass through multiline compound commands unchanged", async () => {
+      const cmd = "if true\nthen\n  echo yes\nfi"
+      mockEvent.input.command = cmd
+      await toolExecuteBefore(mockEvent)
+      expect(mockEvent.input.command).toBe(cmd)
     })
   })
 
