@@ -206,6 +206,27 @@ describe("toolExecuteBefore", () => {
     })
   })
 
+  describe("quoting and multiline safety", () => {
+    it("should not split on quoted && or ||", async () => {
+      mockEvent.input.command = "printf '%s\\n' 'a && b' || echo \"x || y\""
+      await toolExecuteBefore(mockEvent)
+      expect(mockEvent.input.command).toBe("snip run -- printf '%s\\n' 'a && b' || snip run -- echo \"x || y\"")
+    })
+
+    it("should keep quoted env var values intact", async () => {
+      mockEvent.input.command = 'FOO="hello world" BAR=\'a b\' printenv FOO'
+      await toolExecuteBefore(mockEvent)
+      expect(mockEvent.input.command).toBe('FOO="hello world" BAR=\'a b\' snip run -- printenv FOO')
+    })
+
+    it("should pass through multiline compound commands unchanged", async () => {
+      const cmd = "if true\nthen\n  echo yes\nfi"
+      mockEvent.input.command = cmd
+      await toolExecuteBefore(mockEvent)
+      expect(mockEvent.input.command).toBe(cmd)
+    })
+  })
+
   describe("shell loops with ;", () => {
     it("should pass through for loop unchanged", async () => {
       mockEvent.input.command = "for f in a b c; do echo $f; done"

@@ -1,11 +1,11 @@
 import { Plugin } from "@opencode/plugin"
 import { spawnSync } from "node:child_process"
 
-const ENV_VAR_RE = /^([A-Za-z_][A-Za-z0-9_]*=[^\s]* +)*/
+const ENV_VAR_RE = /^([A-Za-z_][A-Za-z0-9_]*=(?:'[^']*'|"(?:[^"\\]|\\.)*"|[^\s'"])* +)*/
 const UNPROXYABLE_COMMANDS = new Set([
   "cd", "source", ".", "export", "alias", "unset", "set", "shopt", "eval", "exec",
 ])
-const OPERATOR_RE = /(\s*(?:&&|\|\|)\s*)/
+const OPERATOR_RE = /^\s*(?:&&|\|\|)\s*$/
 
 function findFirstPipe(command: string): number {
   let inSingleQuote = false
@@ -30,7 +30,32 @@ function findFirstPipe(command: string): number {
   return -1
 }
 
-function containsUnquotedSemicolon(command: string): boolean {
+function splitOnUnquotedOperators(command: string): string[] {
+  const segments: string[] = []
+  let inSingleQuote = false
+  let inDoubleQuote = false
+  let start = 0
+  for (let i = 0; i < command.length; i++) {
+    const char = command[i]
+    if (char === "'" && !inDoubleQuote) {
+      inSingleQuote = !inSingleQuote
+    } else if (char === '"' && !inSingleQuote) {
+      inDoubleQuote = !inDoubleQuote
+    } else if (!inSingleQuote && !inDoubleQuote && (command.startsWith("&&", i) || command.startsWith("||", i))) {
+      let opStart = i
+      while (opStart > start && /\s/.test(command[opStart - 1])) opStart--
+      let opEnd = i + 2
+      while (opEnd < command.length && /\s/.test(command[opEnd])) opEnd++
+      segments.push(command.slice(start, opStart), command.slice(opStart, opEnd))
+      start = opEnd
+      i = opEnd - 1
+    }
+  }
+  segments.push(command.slice(start))
+  return segments
+}
+
+function containsUnquotedSeparator(command: string): boolean {
   let inSingleQuote = false
   let inDoubleQuote = false
   for (let i = 0; i < command.length; i++) {
@@ -39,7 +64,7 @@ function containsUnquotedSemicolon(command: string): boolean {
       inSingleQuote = !inSingleQuote
     } else if (char === '"' && !inSingleQuote) {
       inDoubleQuote = !inDoubleQuote
-    } else if (char === ';' && !inSingleQuote && !inDoubleQuote) {
+    } else if ((char === ';' || char === '\n') && !inSingleQuote && !inDoubleQuote) {
       return true
     }
   }
@@ -67,7 +92,7 @@ export const toolExecuteBefore = (event: ExecuteBeforeEvent): void => {
   const command = args.command
   if (!command || typeof command !== "string") return
   if (command.startsWith("snip ")) return
-  if (containsUnquotedSemicolon(command)) return
+  if (containsUnquotedSeparator(command)) return
 
   if (findFirstPipe(command) !== -1) {
     const pipeIdx = findFirstPipe(command)
@@ -77,7 +102,7 @@ export const toolExecuteBefore = (event: ExecuteBeforeEvent): void => {
     return
   }
 
-  const segments = command.split(OPERATOR_RE)
+  const segments = splitOnUnquotedOperators(command)
 
   if (segments.length === 1) {
     args.command = snipCommand(command)
