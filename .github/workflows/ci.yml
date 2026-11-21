@@ -3,6 +3,7 @@ name: CI
 on:
   push:
   pull_request:
+  workflow_call:
 
 jobs:
   ci:
@@ -21,6 +22,13 @@ jobs:
 
       - name: Typecheck
         run: npm run typecheck
+
+      - name: Install snip
+        env:
+          SNIP_VERSION: 0.25.2
+        run: |
+          curl -fsSL "https://github.com/edouard-claude/snip/releases/download/v${SNIP_VERSION}/snip_${SNIP_VERSION}_linux_amd64.tar.gz" | tar -xz -C /usr/local/bin snip
+          snip --version
 
       - name: Test
         run: npm test

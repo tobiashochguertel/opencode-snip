@@ -60,7 +60,8 @@ export interface ExecuteBeforeEvent {
 }
 
 export const toolExecuteBefore = (event: ExecuteBeforeEvent): void => {
-  if (event.tool !== "bash") return
+  // OpenCode v2 renamed the `bash` tool to `shell`; accept both.
+  if (event.tool !== "bash" && event.tool !== "shell") return
 
   const args = event.input
   const command = args.command

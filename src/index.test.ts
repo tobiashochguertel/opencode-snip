@@ -85,6 +85,13 @@ describe("toolExecuteBefore", () => {
     expect(mockEvent.input.command).toBe("go test")
   })
 
+  it("should handle the OpenCode v2 shell tool", async () => {
+    mockEvent.tool = "shell"
+    mockEvent.input.command = "go test"
+    await toolExecuteBefore(mockEvent)
+    expect(mockEvent.input.command).toBe("snip run -- go test")
+  })
+
   describe("unproxyable shell builtins", () => {
     it("should skip cd", async () => {
       mockEvent.input.command = "cd /tmp"
