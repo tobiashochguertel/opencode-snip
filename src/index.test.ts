@@ -219,6 +219,12 @@ describe("toolExecuteBefore", () => {
       expect(mockEvent.input.command).toBe('FOO="hello world" BAR=\'a b\' snip run -- printenv FOO')
     })
 
+    it("should keep backslash-escaped env var values intact", async () => {
+      mockEvent.input.command = "FOO=it\\'s printenv FOO"
+      await toolExecuteBefore(mockEvent)
+      expect(mockEvent.input.command).toBe("FOO=it\\'s snip run -- printenv FOO")
+    })
+
     it("should pass through multiline compound commands unchanged", async () => {
       const cmd = "if true\nthen\n  echo yes\nfi"
       mockEvent.input.command = cmd

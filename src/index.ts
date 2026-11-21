@@ -1,7 +1,7 @@
 import { Plugin } from "@opencode/plugin"
 import { spawnSync } from "node:child_process"
 
-const ENV_VAR_RE = /^([A-Za-z_][A-Za-z0-9_]*=(?:'[^']*'|"(?:[^"\\]|\\.)*"|[^\s'"])* +)*/
+const ENV_VAR_RE = /^([A-Za-z_][A-Za-z0-9_]*=(?:'[^']*'|"(?:[^"\\]|\\.)*"|\\.|[^\s'"\\])* +)*/
 const UNPROXYABLE_COMMANDS = new Set([
   "cd", "source", ".", "export", "alias", "unset", "set", "shopt", "eval", "exec",
 ])
